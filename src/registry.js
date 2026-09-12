@@ -119,6 +119,9 @@ export function isHtml(absPath) {
 const GENERATED_INHERIT_EXCLUDE = new Set([
   'name',
   'childPages',
+  'parent',
+  'prevSibling',
+  'nextSibling',
   'url',
   'getPages',
   'default',

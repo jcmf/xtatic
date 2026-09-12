@@ -774,3 +774,45 @@ test('an empty assetsDir is rejected', async () => {
     /assetsDir must be a non-empty string/,
   );
 });
+
+test('a layout can render previous/next links via prevSibling/nextSibling', async () => {
+  const fs = makeFs({
+    '/top/layouts/post.mdx':
+      '<article>{props.children}</article>\n' +
+      '<nav>' +
+      '{props.children.prevSibling && <a rel="prev" href={props.children.prevSibling.url}>{props.children.prevSibling.title}</a>}' +
+      '{props.children.nextSibling && <a rel="next" href={props.children.nextSibling.url}>{props.children.nextSibling.title}</a>}' +
+      '</nav>\n',
+    '/top/pages/index.md': '# Home\n',
+    '/top/pages/blog/index.md': 'export const defaultLayout = "post"\n\n# Blog\n',
+    '/top/pages/blog/2026-01-01-first.md': 'one\n',
+    '/top/pages/blog/2026-01-02-second.md': 'two\n',
+    '/top/pages/blog/2026-01-03-third.md': 'three\n',
+  });
+  await build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs });
+  const read = (p) => fs.promises.readFile(p, 'utf8');
+  const first = await read('/out/blog/2026-01-01-first/index.html');
+  const second = await read('/out/blog/2026-01-02-second/index.html');
+  const third = await read('/out/blog/2026-01-03-third/index.html');
+  assert.doesNotMatch(first, /rel="prev"/);
+  assert.match(first, /<a rel="next" href="\.\.\/2026-01-02-second\/">Second<\/a>/);
+  assert.match(second, /<a rel="prev" href="\.\.\/2026-01-01-first\/">First<\/a>/);
+  assert.match(second, /<a rel="next" href="\.\.\/2026-01-03-third\/">Third<\/a>/);
+  assert.match(third, /<a rel="prev" href="\.\.\/2026-01-02-second\/">Second<\/a>/);
+  assert.doesNotMatch(third, /rel="next"/);
+});
+
+test('parent and siblings are available as bare identifiers inside a page', async () => {
+  const fs = makeFs({
+    '/in/index.md': '# Home\n',
+    '/in/docs/index.md': '# Docs\n',
+    '/in/docs/a.md': '<p>{parent.title}|{nextSibling.name}|{String(prevSibling)}</p>\n',
+    '/in/docs/b.md': '<p>{prevSibling.name}</p>\n',
+  });
+  await build({ inputDir: '/in', outputDir: '/out', fs });
+  assert.match(
+    await fs.promises.readFile('/out/docs/a/index.html', 'utf8'),
+    /<p>Docs\|b\|undefined<\/p>/,
+  );
+  assert.match(await fs.promises.readFile('/out/docs/b/index.html', 'utf8'), /<p>a<\/p>/);
+});

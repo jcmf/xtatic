@@ -277,6 +277,8 @@ After compilation, every page is a module object exposing:
 - `childPages` — `Array` of child modules sorted by `name`
 - `layout` — the page's layout module (inherited or explicitly set; may be `undefined`)
 - `name` — the module's last path segment (set on every module that's a child of another; the root has no `name`)
+- `parent` — the module this one is a child of (`undefined` on the root)
+- `prevSibling` / `nextSibling` — the neighbours in the parent's `childPages` (same `name` order), or `undefined` at either end
 - `url` — a link to this page's rendered output. The natural way to link a `childPages` entry: `<a href={p.url}>`. It resolves to a clean directory URL relative to whatever page the link lands on, with `outputPath` overrides honored (`feed.xml` rather than `feed/`). Because it's the same kind of deferred token [`asset`](#builtins) returns, it works wherever it lands — a whitelisted attribute, a custom component prop, even bare text. Tool-owned: exporting your own `url` is overridden.
 - frontmatter keys + any named exports
 
@@ -289,6 +291,18 @@ A directory without its own `index.md` shows up in this tree as a grouping node 
   {childPages.map((p) => <li><a href={p.url}>{p.title}</a></li>)}
 </ul>
 ```
+
+`parent`, `prevSibling`, and `nextSibling` point the other way — up and sideways — so a layout can navigate from the page it wraps without importing anything. Blog posts named `YYYY-MM-DD-slug.md` sort chronologically, which makes previous/next links a couple of lines in the post layout:
+
+```mdx
+{props.children}
+<nav>
+  {props.children.prevSibling && <a rel="prev" href={props.children.prevSibling.url}>← {props.children.prevSibling.title}</a>}
+  {props.children.nextSibling && <a rel="next" href={props.children.nextSibling.url}>{props.children.nextSibling.title} →</a>}
+</nav>
+```
+
+(Swap the two if you want "previous" to mean the newer post.) A sibling can be a grouping node with no `url` — check for it if a section mixes leaf pages and subdirectories. Like `childPages` and `name`, these three are tool-owned: an export of the same name is overridden.
 
 ## Custom components
 

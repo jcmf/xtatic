@@ -86,6 +86,20 @@ export function assembleTree(entries, options = {}) {
     );
   }
 
+  // Tool-owned navigation fields, rebuilt unconditionally on every call (like
+  // childPages) so buildImpl's two-pass assembly can't leave a stale
+  // prevSibling/nextSibling from the first pass: a page that was last among
+  // its siblings before generators expanded may gain a nextSibling after.
+  // The root has no parent and no siblings (all three stay undefined).
+  for (const entry of all) {
+    const sibs = entry.mm.childPages;
+    for (let i = 0; i < sibs.length; i++) {
+      sibs[i].parent = entry.mm;
+      sibs[i].prevSibling = i > 0 ? sibs[i - 1] : undefined;
+      sibs[i].nextSibling = i < sibs.length - 1 ? sibs[i + 1] : undefined;
+    }
+  }
+
   for (const entry of all) {
     // Synthetic nodes never render, so a layout would be dead weight; the
     // defaultLayout walk below already skips through them (byKey lookup finds

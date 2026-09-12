@@ -293,3 +293,22 @@ test('an empty getPages result produces no pages', async () => {
   const home = await fs.promises.readFile('/out/index.html', 'utf8');
   assert.match(home, /<h1>Home<\/h1>/);
 });
+
+test('generated pages get parent/prevSibling/nextSibling alongside ordinary siblings', async () => {
+  const fs = makeFs({
+    '/in/index.md': '# Home\n',
+    '/in/blog/index.md': '# Blog\n',
+    '/in/blog/a.md': '<p>{String(prevSibling)}|{nextSibling.name}</p>\n',
+    '/in/blog/z.md': '<p>{prevSibling.name}|{String(nextSibling)}</p>\n',
+    '/in/blog/tag-{tag}.md':
+      "export const getPages = () => [{ tag: 'rust' }, { tag: 'js' }]\n\n" +
+      '<p>{parent.name}|{prevSibling.name}|{nextSibling.name}</p>\n',
+  });
+  await build({ inputDir: '/in', outputDir: '/out', fs });
+  const read = (p) => fs.promises.readFile(p, 'utf8');
+  // Sorted: a, tag-js, tag-rust, z — the second assembly wires generated pages in.
+  assert.match(await read('/out/blog/a/index.html'), /<p>undefined\|tag-js<\/p>/);
+  assert.match(await read('/out/blog/tag-js/index.html'), /<p>blog\|a\|tag-rust<\/p>/);
+  assert.match(await read('/out/blog/tag-rust/index.html'), /<p>blog\|tag-js\|z<\/p>/);
+  assert.match(await read('/out/blog/z/index.html'), /<p>tag-rust\|undefined<\/p>/);
+});

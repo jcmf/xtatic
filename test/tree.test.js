@@ -232,3 +232,48 @@ test('the root module gets no date or title defaults', () => {
   assert.equal(root.date, undefined);
   assert.equal(root.title, undefined);
 });
+
+test('every child gets parent, prevSibling, and nextSibling in childPages order', () => {
+  const root = assembleTree([
+    entry([]),
+    entry(['blog']),
+    entry(['blog', '2026-01-03-c']),
+    entry(['blog', '2026-01-01-a']),
+    entry(['blog', '2026-01-02-b']),
+  ]);
+  const blog = child(root, 'blog');
+  const [a, b, c] = blog.childPages;
+  assert.equal(blog.parent, root);
+  assert.equal(a.parent, blog);
+  assert.equal(a.prevSibling, undefined);
+  assert.equal(a.nextSibling, b);
+  assert.equal(b.prevSibling, a);
+  assert.equal(b.nextSibling, c);
+  assert.equal(c.prevSibling, b);
+  assert.equal(c.nextSibling, undefined);
+  // The root is nobody's child.
+  assert.equal(root.parent, undefined);
+  assert.equal(root.prevSibling, undefined);
+  assert.equal(root.nextSibling, undefined);
+});
+
+test('a synthetic grouping node is a parent and a sibling like any other', () => {
+  const root = assembleTree([entry([]), entry(['a']), entry(['g', 'leaf'])]);
+  const a = child(root, 'a');
+  const g = child(root, 'g');
+  assert.equal(g.__xtatic_synthetic, true);
+  assert.equal(g.parent, root);
+  assert.equal(a.nextSibling, g);
+  assert.equal(g.prevSibling, a);
+  assert.equal(child(g, 'leaf').parent, g);
+});
+
+test('parent/prevSibling/nextSibling are rebuilt when assembleTree runs again over a larger set', () => {
+  const a = entry(['a']);
+  const rootE = entry([]);
+  assembleTree([rootE, a]);
+  assert.equal(a.mm.nextSibling, undefined);
+  assembleTree([rootE, a, entry(['b'])]);
+  assert.equal(a.mm.nextSibling.name, 'b');
+  assert.equal(a.mm.nextSibling.prevSibling, a.mm);
+});

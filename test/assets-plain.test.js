@@ -35,6 +35,49 @@ test('plain <img src> with large file used by one page co-locates', async () => 
   assert.equal(stat.size, 8192);
 });
 
+test('co-location mirrors the inputDir-relative path when inputDir is below topDir', async () => {
+  // Regression: placement used to mirror the topDir-relative path
+  // (`out/pages/foo/big.png`), which is never under the page's own output dir
+  // (`out/foo/`), so co-location silently never fired under the default
+  // `pages/` layout and every large single-page asset went to _assets/.
+  const fs = makeFs({
+    '/top/pages/index.md': '# home\n',
+    '/top/pages/foo/index.md': '<img src="./big.png" alt="b" />\n',
+  });
+  await fs.promises.writeFile('/top/pages/foo/big.png', bytes(8192));
+  await build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs });
+  const html = await fs.promises.readFile('/out/foo/index.html', 'utf8');
+  assert.match(html, /<img src="big\.png" alt="b">/);
+  const stat = await fs.promises.stat('/out/foo/big.png');
+  assert.equal(stat.size, 8192);
+  assert.equal(fs.existsSync('/out/_assets'), false);
+  assert.equal(fs.existsSync('/out/pages'), false);
+});
+
+test('an asset outside inputDir is never co-located, even when used by one page', async () => {
+  const fs = makeFs({
+    '/top/pages/index.md': '<img src="/assets/big.png" alt="b" />\n',
+  });
+  await fs.promises.mkdir('/top/assets', { recursive: true });
+  await fs.promises.writeFile('/top/assets/big.png', bytes(8192));
+  await build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs });
+  const html = await fs.promises.readFile('/out/index.html', 'utf8');
+  assert.match(html, /<img src="_assets\/[a-f0-9]+\.png" alt="b">/);
+  await assert.rejects(
+    build({
+      inputDir: '/top/pages',
+      outputDir: '/out',
+      topDir: '/top',
+      fs: makeFs({
+        '/top/pages/index.md':
+          '<img src="/assets/big.png" alt="b" data-xtatic-placement="co-located" />\n',
+        '/top/assets/big.png': bytes(8192).toString('latin1'),
+      }),
+    }),
+    /co-located/,
+  );
+});
+
 test('plain <img src> with large file used by multiple pages goes to _assets', async () => {
   const fs = makeFs({
     '/in/index.md': '<img src="/shared.png" alt="s" />\n',

@@ -363,7 +363,7 @@ Path resolution matches `<Image>`/`<Style>`/`readfile`: a leading `/` is rooted 
 
 ```mdx
 [About](./about.md)            <!-- → <a href="about/">About</a> -->
-<a href="/blog/intro.md#setup">Setup</a>
+<a href="/pages/blog/intro.md#setup">Setup</a>
 ```
 
 Because each page renders to its own `dir/index.html`, the input→output path differs: a link from `a.md` to its source sibling `./b.md` comes out as `../b/` (both pages now live one directory deep). Targets are linked to the directory (clean URL, e.g. `about/`); a page that overrides its location with `outputPath` (e.g. `/feed.xml`) is linked to that exact file. Fragments and queries are preserved (`about/#setup`).
@@ -377,7 +377,7 @@ When you already hold a page *module* rather than a path string — e.g. iterati
 **Placement chooser.** For each referenced file:
 
 1. ≤ **4096 bytes** → inlined as a `data:` URL.
-2. Used by exactly one page, *and* the source sits inside that page's output directory → co-located (copied alongside the page, mirroring its source-tree position).
+2. Used by exactly one page, *and* the source sits inside that page's output directory → co-located (copied alongside the page, mirroring its position under `INPUT_DIR` — so `pages/foo/big.png` lands at `OUTPUT_DIR/foo/big.png`; a file outside `INPUT_DIR` can never be co-located).
 3. Otherwise → shared at `OUTPUT_DIR/_assets/<hash>.<ext>`.
 
 The inline threshold is configurable project-wide via `package.json` `xtatic.assetInlineThreshold`. Shared assets share `_assets/` with `<Image>`/`<Style>`/`<Font>` output and are content-addressed, so the same file referenced from many pages (or many tags) writes once. All rendered URLs are page-relative, so the site works served from any subpath.

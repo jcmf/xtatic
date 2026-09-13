@@ -446,6 +446,7 @@ async function buildImpl({
   const plainAssetRegistry = createPlainAssetRegistry({
     fs,
     topDir,
+    inputDir,
     outputDir,
     assetRegistry,
     defaultInlineThreshold: assetInlineThreshold,

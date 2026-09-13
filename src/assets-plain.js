@@ -108,6 +108,12 @@ function findLinkTarget(absSrc, pageOutBySrc, verbatimOutBySrc) {
 export function createPlainAssetRegistry({
   fs,
   topDir,
+  // Root of the page tree. Co-located placement mirrors an asset's position
+  // *relative to inputDir* into outputDir (the same mapping pages and verbatim
+  // copies use), so `pages/foo/big.png` lands next to `foo/index.html`. Path
+  // *resolution* (a leading `/`) is still rooted at topDir. Defaults to topDir
+  // for registry-only unit tests, where the two coincide.
+  inputDir = topDir,
   outputDir,
   assetRegistry,
   defaultInlineThreshold = 4096,
@@ -188,10 +194,18 @@ export function createPlainAssetRegistry({
     };
   }
 
+  // Where a co-located copy of `absSrc` would land, or null when the source
+  // lives outside inputDir (nothing to mirror — e.g. `/assets/logo.png` beside
+  // `pages/`), in which case the auto chooser falls back to shared.
+  function colocatedOutPath(absSrc) {
+    const rel = path.posix.relative(inputDir, absSrc);
+    if (rel === '' || rel.startsWith('..')) return null;
+    return path.posix.join(outputDir, rel);
+  }
+
   function isAssetUnderPage(assetAbsSrc, pageOutPath) {
-    const relAssetFromTop = path.posix.relative(topDir, assetAbsSrc);
-    if (relAssetFromTop.startsWith('..')) return false;
-    const assetOutAbs = path.posix.join(outputDir, relAssetFromTop);
+    const assetOutAbs = colocatedOutPath(assetAbsSrc);
+    if (assetOutAbs === null) return false;
     const assetOutDir = path.posix.dirname(assetOutAbs);
     const pageOutDir = path.posix.dirname(pageOutPath);
     if (assetOutDir === pageOutDir) return true;
@@ -353,8 +367,7 @@ export function createPlainAssetRegistry({
       try {
         placement = decidePlacement(entry);
         if (placement === 'co-located') {
-          const relFromTop = path.posix.relative(topDir, entry.absSrc);
-          const assetOutAbs = path.posix.join(outputDir, relFromTop);
+          const assetOutAbs = colocatedOutPath(entry.absSrc);
           const existing = colocatedWrites.get(assetOutAbs);
           if (existing && !existing.equals(entry.bytes)) {
             throw attachContext(
@@ -391,8 +404,7 @@ export function createPlainAssetRegistry({
           break;
         }
         case 'co-located': {
-          const relFromTop = path.posix.relative(topDir, entry.absSrc);
-          const assetOutAbs = path.posix.join(outputDir, relFromTop);
+          const assetOutAbs = colocatedOutPath(entry.absSrc);
           colocatedWrites.set(assetOutAbs, entry.bytes);
           for (const call of entry.calls) {
             tokenToResolver.set(call.token, (outPath) => {

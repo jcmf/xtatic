@@ -6,7 +6,13 @@ import { runLint } from './lint.js';
 import { color, log, warn } from './log.js';
 
 export async function watch({ buildOptions, debounceMs = 100 }) {
-  const { topDir, outputDir, codeFrameWidth, keepGoing = false } = buildOptions;
+  const {
+    topDir,
+    outputDir,
+    codeFrameWidth,
+    verbatimMarker,
+    keepGoing = false,
+  } = buildOptions;
   const state = { error: null };
 
   let building = false;
@@ -35,7 +41,7 @@ export async function watch({ buildOptions, debounceMs = 100 }) {
       // build runs anyway, and the two are reported together.
       let lintError = null;
       try {
-        await runLint({ topDir, outputDir, codeFrameWidth });
+        await runLint({ topDir, outputDir, codeFrameWidth, verbatimMarker });
       } catch (e) {
         if (!keepGoing) throw e;
         lintError = e;

@@ -167,7 +167,7 @@ test('.html pages never get a layout, even with a defaultLayout in scope', async
   const fs = makeFs({
     '/in/index.md': '---\ndefaultLayout: base\n---\n# root\n',
     '/in/page.html': '<html><body>plain</body></html>\n',
-    '/top/layouts/base.md': '<div class="wrapped">{children}</div>\n',
+    '/top/_layouts/base.md': '<div class="wrapped">{children}</div>\n',
   });
   await build({ inputDir: '/in', outputDir: '/out', topDir: '/top', fs });
   const root = await fs.promises.readFile('/out/index.html', 'utf8');
@@ -326,7 +326,7 @@ test('an inline <style> url() can point at a verbatim file', async () => {
     '/in/index.md': '# root\n',
     '/in/page.html':
       '<html><head><style>body{background:url(/in/static/bg.gif)}</style></head></html>\n',
-    '/in/static/.xtatic-verbatim': '',
+    '/in/static/_xtatic_verbatim': '',
     '/in/static/bg.gif': 'gif',
   });
   await build({ inputDir: '/in', outputDir: '/out', topDir: '/', fs });

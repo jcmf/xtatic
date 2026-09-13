@@ -90,9 +90,10 @@ if (command === 'init') {
 }
 
 let inputDir = 'pages';
-let outputDir = 'site';
-let layoutsDir = 'layouts';
+let outputDir = '_site';
+let layoutsDir = '_layouts';
 let assetsDir;
+let verbatimMarker;
 let remarkPluginSpecs = [];
 let smartypantsConfig = true;
 let imageInlineThreshold;
@@ -121,6 +122,17 @@ if (fs.existsSync(pkgPath)) {
       process.exit(1);
     }
     assetsDir = pkg.xtatic.assetsDir;
+  }
+  if (pkg.xtatic?.verbatimMarker != null) {
+    // Shape validation (single file name) lives in build()'s
+    // assertValidVerbatimMarker; only the type is checked here.
+    if (typeof pkg.xtatic.verbatimMarker !== 'string') {
+      console.error(
+        `xtatic.verbatimMarker must be a string; got ${JSON.stringify(pkg.xtatic.verbatimMarker)}.`,
+      );
+      process.exit(1);
+    }
+    verbatimMarker = pkg.xtatic.verbatimMarker;
   }
   if (pkg.xtatic?.remarkPlugins) remarkPluginSpecs = pkg.xtatic.remarkPlugins;
   if (pkg.xtatic && 'smartypants' in pkg.xtatic) {
@@ -262,6 +274,7 @@ const buildOptions = {
   topDir,
   layoutsDir,
   assetsDir,
+  verbatimMarker,
   remarkPlugins,
   imageInlineThreshold,
   styleInlineThreshold,
@@ -280,7 +293,7 @@ if (command === 'build') {
     // it, build anyway, and report both.
     let lintError = null;
     try {
-      await runLint({ topDir, outputDir, codeFrameWidth });
+      await runLint({ topDir, outputDir, codeFrameWidth, verbatimMarker });
     } catch (e) {
       if (!keepGoing) throw e;
       lintError = e;

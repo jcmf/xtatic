@@ -8,11 +8,27 @@ import path from 'node:path';
 // the whole subtree of any matching directory) verbatim; everything else in
 // the directory is still walked for pages as usual. Patterns are a gitignore
 // subset — see parseVerbatimMarker. The marker itself is never copied.
-export const VERBATIM_MARKER = '.xtatic-verbatim';
+// The name is configurable (`xtatic.verbatimMarker`); this is the default.
+export const DEFAULT_VERBATIM_MARKER = '_xtatic_verbatim';
+
+// A marker name is a single path segment: a bare filename that can sit in
+// any directory. Throws on anything else.
+export function assertValidVerbatimMarker(name) {
+  if (typeof name !== 'string' || name === '') {
+    throw new Error(
+      `verbatimMarker must be a non-empty string; got ${JSON.stringify(name)}.`,
+    );
+  }
+  if (name.includes('/') || name === '.' || name === '..') {
+    throw new Error(
+      `verbatimMarker must be a single file name (no "/", not "." or ".."); got ${JSON.stringify(name)}.`,
+    );
+  }
+}
 
 // True when `dirent`s (from readdir withFileTypes) include the marker file.
-export function hasVerbatimMarker(dirents) {
-  return dirents.some((d) => d.name === VERBATIM_MARKER && !d.isDirectory());
+export function hasVerbatimMarker(dirents, marker) {
+  return dirents.some((d) => d.name === marker && !d.isDirectory());
 }
 
 // Pattern lines → matcher rules. Syntax (gitignore subset):
@@ -92,7 +108,8 @@ export function isVerbatimByPatterns(active, childRel, isDir) {
 // Every regular file under `absDir` (recursively, sorted for determinism),
 // excluding marker files, as `{absPath, relPath}` where relPath is relative to
 // inputDir (`relDir` is absDir's own inputDir-relative path, '' for the root).
-export async function collectVerbatimFiles(fs, absDir, relDir) {
+// `marker` is the marker file name to exclude.
+export async function collectVerbatimFiles(fs, absDir, relDir, marker) {
   const results = [];
   async function recurse(dirAbs, dirRel) {
     const entries = await fs.promises.readdir(dirAbs, { withFileTypes: true });
@@ -102,7 +119,7 @@ export async function collectVerbatimFiles(fs, absDir, relDir) {
       const childRel = dirRel === '' ? ent.name : `${dirRel}/${ent.name}`;
       if (ent.isDirectory()) {
         await recurse(childAbs, childRel);
-      } else if (ent.isFile() && ent.name !== VERBATIM_MARKER) {
+      } else if (ent.isFile() && ent.name !== marker) {
         results.push({ absPath: childAbs, relPath: childRel });
       }
     }

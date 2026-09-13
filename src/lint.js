@@ -8,7 +8,7 @@ import globals from 'globals';
 import { BUILTIN_SPECS } from './builtins-registry.js';
 import { renderCodeFrame } from './code-frame.js';
 import {
-  VERBATIM_MARKER,
+  DEFAULT_VERBATIM_MARKER,
   isVerbatimByPatterns,
   parseVerbatimMarker,
 } from './verbatim.js';
@@ -88,7 +88,7 @@ export function makeConfig(topDir) {
   ];
 }
 
-function walkLintTargets(topDir, outputDir) {
+function walkLintTargets(topDir, outputDir, verbatimMarker) {
   const results = [];
   const outAbs = path.resolve(outputDir);
   const topAbs = path.resolve(topDir);
@@ -103,7 +103,7 @@ function walkLintTargets(topDir, outputDir) {
     } catch {
       return;
     }
-    const markerPath = path.join(dir, VERBATIM_MARKER);
+    const markerPath = path.join(dir, verbatimMarker);
     if (fs.existsSync(markerPath)) {
       const marker = parseVerbatimMarker(fs.readFileSync(markerPath, 'utf8'));
       if (marker.all) return;
@@ -134,8 +134,13 @@ function walkLintTargets(topDir, outputDir) {
   return results;
 }
 
-export async function runLint({ topDir, outputDir, codeFrameWidth = 120 }) {
-  const files = walkLintTargets(topDir, outputDir);
+export async function runLint({
+  topDir,
+  outputDir,
+  codeFrameWidth = 120,
+  verbatimMarker = DEFAULT_VERBATIM_MARKER,
+}) {
+  const files = walkLintTargets(topDir, outputDir, verbatimMarker);
   if (files.length === 0) return;
   const eslint = new ESLint({
     cwd: path.resolve(topDir),

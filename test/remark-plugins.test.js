@@ -124,7 +124,7 @@ test('CLI loads a remark plugin named in package.json from topDir node_modules',
   const r = spawnSync(process.execPath, [cli, 'build', top], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.match(html, /<h1>REPLACED here<\/h1>/);
@@ -151,7 +151,7 @@ test('CLI honors plugin options via the [name, options] tuple form', () => {
   const r = spawnSync(process.execPath, [cli, 'build', top], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.match(html, /<h1>hello mars<\/h1>/);
@@ -178,7 +178,7 @@ test('CLI applies remark-smartypants by default', () => {
   const r = spawnSync(process.execPath, [cli, 'build', top], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   // smartypants converts straight quotes to curly and -- to em-dash.
@@ -196,7 +196,7 @@ test('CLI honors xtatic.smartypants=false to disable smartypants', () => {
   const r = spawnSync(process.execPath, [cli, 'build', top], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.doesNotMatch(html, /’|“|”|—/);
@@ -214,7 +214,7 @@ test('CLI passes xtatic.smartypants object as plugin options', () => {
   const r = spawnSync(process.execPath, [cli, 'build', top], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   // quotes still transformed, but dashes left alone.

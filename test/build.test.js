@@ -112,7 +112,7 @@ test("a synthetic directory node inherits nothing but passes defaultLayout throu
   const fs = makeFs({
     '/top/pages/index.md': '---\ndefaultLayout: base\n---\n# r\n',
     '/top/pages/section/leaf.md': '# leaf\n',
-    '/top/layouts/base.mdx': '<main>{props.children}</main>\n',
+    '/top/_layouts/base.mdx': '<main>{props.children}</main>\n',
   });
   await build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs });
   const leaf = await fs.promises.readFile('/out/section/leaf/index.html', 'utf8');
@@ -136,7 +136,7 @@ test('a deferred asset error reports the call site, layout chain, and page', asy
   const fs = makeFs({
     '/top/pages/index.md': '---\ntitle: Home\nlayout: base\n---\n# Home\n',
     '/top/pages/blog/index.md': '---\ntitle: Blog\nlayout: base\n---\n# Blog\n',
-    '/top/layouts/base.mdx':
+    '/top/_layouts/base.mdx':
       "import {Image} from 'xtatic:image';\n\n" +
       '<html><body>\n\n' +
       "<Image src='./missing.png' alt='x' />\n\n" +
@@ -145,9 +145,9 @@ test('a deferred asset error reports the call site, layout chain, and page', asy
   await assert.rejects(
     () => build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs }),
     (e) => {
-      assert.match(e.message, /^<Image>: source not found at \/top\/layouts\/missing\.png/);
-      assert.match(e.message, /\n {2}in <Image> at layouts\/base\.mdx:5:1/);
-      assert.match(e.message, /\n {2}in layout layouts\/base\.mdx/);
+      assert.match(e.message, /^<Image>: source not found at \/top\/_layouts\/missing\.png/);
+      assert.match(e.message, /\n {2}in <Image> at _layouts\/base\.mdx:5:1/);
+      assert.match(e.message, /\n {2}in layout _layouts\/base\.mdx/);
       // The first page reached wins (build walks the tree depth-first).
       assert.match(e.message, /\n {2}while building page \//);
       return true;
@@ -158,7 +158,7 @@ test('a deferred asset error reports the call site, layout chain, and page', asy
 test('a plain <img> error reports the element and its call site', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\ntitle: Home\nlayout: base\n---\n# Home\n',
-    '/top/layouts/base.mdx':
+    '/top/_layouts/base.mdx':
       '<html><body>\n\n' +
       "<img src='./logo.png' alt='x' />\n\n" +
       '{props.children}\n\n</body></html>\n',
@@ -166,9 +166,9 @@ test('a plain <img> error reports the element and its call site', async () => {
   await assert.rejects(
     () => build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs }),
     (e) => {
-      assert.match(e.message, /^Asset not found at \/top\/layouts\/logo\.png/);
-      assert.match(e.message, /\n {2}in <img> at layouts\/base\.mdx:3:1/);
-      assert.match(e.message, /\n {2}in layout layouts\/base\.mdx/);
+      assert.match(e.message, /^Asset not found at \/top\/_layouts\/logo\.png/);
+      assert.match(e.message, /\n {2}in <img> at _layouts\/base\.mdx:3:1/);
+      assert.match(e.message, /\n {2}in layout _layouts\/base\.mdx/);
       assert.match(e.message, /\n {2}while building page \//);
       return true;
     },
@@ -192,7 +192,7 @@ test('a markdown ![]() image error reports <img> and the markdown line', async (
 test('a synchronous component error in a layout gets the same render-context trace', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\ntitle: Home\nlayout: base\n---\n# Home\n',
-    '/top/layouts/base.mdx':
+    '/top/_layouts/base.mdx':
       "import {Font} from 'xtatic:font';\n\n" +
       '<html><head>\n\n' +
       "<Font src='./Inter.woff2' />\n\n" +
@@ -202,7 +202,7 @@ test('a synchronous component error in a layout gets the same render-context tra
     () => build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs }),
     (e) => {
       assert.match(e.message, /requires a non-empty family/);
-      assert.match(e.message, /\n {2}in <Font> at layouts\/base\.mdx:5:1/);
+      assert.match(e.message, /\n {2}in <Font> at _layouts\/base\.mdx:5:1/);
       assert.match(e.message, /\n {2}while building page \//);
       return true;
     },
@@ -212,7 +212,7 @@ test('a synchronous component error in a layout gets the same render-context tra
 test('a render error shows the offending source line under its frame', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\ntitle: Home\nlayout: base\n---\n# Home\n',
-    '/top/layouts/base.mdx':
+    '/top/_layouts/base.mdx':
       "import {Image} from 'xtatic:image';\n\n" +
       '<html><body>\n\n' +
       "<Image src='./missing.png' alt='x' />\n\n" +
@@ -221,7 +221,7 @@ test('a render error shows the offending source line under its frame', async () 
   await assert.rejects(
     () => build({ inputDir: '/top/pages', outputDir: '/out', topDir: '/top', fs }),
     (e) => {
-      assert.match(e.message, /\n {2}in <Image> at layouts\/base\.mdx:5:1/);
+      assert.match(e.message, /\n {2}in <Image> at _layouts\/base\.mdx:5:1/);
       // The code frame (indented under the frame) shows the real source line,
       // not just file:line:column.
       assert.match(
@@ -256,7 +256,7 @@ test('defaultLayout on the root applies to the root and all descendants', async 
     '/top/pages/about.md': '---\ntitle: About\n---\n# About me\n',
     '/top/pages/blog/index.md': '---\ntitle: Blog\n---\n# Blog\n',
     '/top/pages/blog/post.md': '---\ntitle: Post\n---\n# Post\n',
-    '/top/layouts/layout.mdx':
+    '/top/_layouts/layout.mdx':
       '<html>\n' +
       '<head><title>{props.children.title}</title></head>\n' +
       '<body>{props.children}</body>\n' +
@@ -288,8 +288,8 @@ test('a subtree index can set its own defaultLayout that wins for its descendant
     '/top/pages/section/page.md': '# P\n',
     '/top/pages/other/index.md': '# O-section\n',
     '/top/pages/other/page.md': '# O\n',
-    '/top/layouts/outer.mdx': '<outer>{props.children}</outer>\n',
-    '/top/layouts/inner.mdx': '<inner>{props.children}</inner>\n',
+    '/top/_layouts/outer.mdx': '<outer>{props.children}</outer>\n',
+    '/top/_layouts/inner.mdx': '<inner>{props.children}</inner>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -319,7 +319,7 @@ test('a subtree index can set its own defaultLayout that wins for its descendant
 test('a string layout in frontmatter resolves against layoutsDir (bare name → .mdx)', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\nlayout: blog\n---\n# Hi\n',
-    '/top/layouts/blog.mdx': '<wrap>{props.children}</wrap>\n',
+    '/top/_layouts/blog.mdx': '<wrap>{props.children}</wrap>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -338,8 +338,8 @@ test('a string layout can include an explicit .md or .mdx suffix', async () => {
     '/top/pages/index.md': '# r\n',
     '/top/pages/a.md': '---\nlayout: x.md\n---\n# A\n',
     '/top/pages/b.md': '---\nlayout: x.mdx\n---\n# B\n',
-    '/top/layouts/x.md': '<md>{props.children}</md>\n',
-    '/top/layouts/x.mdx': '<mdx>{props.children}</mdx>\n',
+    '/top/_layouts/x.md': '<md>{props.children}</md>\n',
+    '/top/_layouts/x.mdx': '<mdx>{props.children}</mdx>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -360,7 +360,7 @@ test('a string layout can include an explicit .md or .mdx suffix', async () => {
 test('a string layout falls back to .md when .mdx is absent', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\nlayout: only-md\n---\n# Hi\n',
-    '/top/layouts/only-md.md': '<md>{props.children}</md>\n',
+    '/top/_layouts/only-md.md': '<md>{props.children}</md>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -377,8 +377,8 @@ test('a string layout falls back to .md when .mdx is absent', async () => {
 test('when both .md and .mdx exist for a bare-name layout, .mdx wins', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\nlayout: dup\n---\n# Hi\n',
-    '/top/layouts/dup.md': '<md>{props.children}</md>\n',
-    '/top/layouts/dup.mdx': '<mdx>{props.children}</mdx>\n',
+    '/top/_layouts/dup.md': '<md>{props.children}</md>\n',
+    '/top/_layouts/dup.mdx': '<mdx>{props.children}</mdx>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -395,7 +395,7 @@ test('when both .md and .mdx exist for a bare-name layout, .mdx wins', async () 
 test('a string layout can use a subpath under layoutsDir', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\nlayout: posts/article\n---\n# Hi\n',
-    '/top/layouts/posts/article.mdx': '<post>{props.children}</post>\n',
+    '/top/_layouts/posts/article.mdx': '<post>{props.children}</post>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -412,9 +412,9 @@ test('a string layout can use a subpath under layoutsDir', async () => {
 test('a layout loaded by name can itself declare a string layout (chain)', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\nlayout: inner\n---\n# Hi\n',
-    '/top/layouts/inner.mdx':
+    '/top/_layouts/inner.mdx':
       '---\nlayout: outer\n---\n<inner>{props.children}</inner>\n',
-    '/top/layouts/outer.mdx': '<outer>{props.children}</outer>\n',
+    '/top/_layouts/outer.mdx': '<outer>{props.children}</outer>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -448,8 +448,8 @@ test('an explicit string layout overrides defaultLayout inherited from an ancest
   const fs = makeFs({
     '/top/pages/index.md': '---\ndefaultLayout: auto\n---\n# r\n',
     '/top/pages/page.md': '---\nlayout: custom\n---\n# P\n',
-    '/top/layouts/auto.mdx': '<auto>{props.children}</auto>\n',
-    '/top/layouts/custom.mdx': '<custom>{props.children}</custom>\n',
+    '/top/_layouts/auto.mdx': '<auto>{props.children}</auto>\n',
+    '/top/_layouts/custom.mdx': '<custom>{props.children}</custom>\n',
   });
   await build({
     inputDir: '/top/pages',
@@ -504,7 +504,7 @@ test('an arrow parameter shadows would-be self lookups', async () => {
 test('a layout sees its own frontmatter via bare identifiers', async () => {
   const fs = makeFs({
     '/top/pages/index.md': '---\nlayout: main\n---\n# Body\n',
-    '/top/layouts/main.mdx':
+    '/top/_layouts/main.mdx':
       '---\nsiteName: My Site\n---\n' +
       '<html><head><title>{siteName}</title></head><body>{props.children}</body></html>\n',
   });
@@ -777,7 +777,7 @@ test('an empty assetsDir is rejected', async () => {
 
 test('a layout can render previous/next links via prevSibling/nextSibling', async () => {
   const fs = makeFs({
-    '/top/layouts/post.mdx':
+    '/top/_layouts/post.mdx':
       '<article>{props.children}</article>\n' +
       '<nav>' +
       '{props.children.prevSibling && <a rel="prev" href={props.children.prevSibling.url}>{props.children.prevSibling.title}</a>}' +

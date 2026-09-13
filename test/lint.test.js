@@ -178,20 +178,20 @@ test('lint failure exits 1 before any build output is written', () => {
   });
   const r = runCli(top);
   assert.notEqual(r.status, 0);
-  assert.equal(nodeFs.existsSync(path.join(top, 'site')), false);
+  assert.equal(nodeFs.existsSync(path.join(top, '_site')), false);
 });
 
 test('lint catches builtin misuse inside a .md layout', () => {
   const top = setupTopDir('md-layout-builtin', {
     'pages/index.md': '---\nlayout: default\n---\n\n# hi\n',
-    'layouts/default.md':
+    '_layouts/default.md':
       "import Style from 'xtatic:style';\n\n" +
       '<Style src="./style.css" />\n\n{children}\n',
-    'layouts/style.css': '.a {}',
+    '_layouts/style.css': '.a {}',
   });
   const r = runCli(top);
   assert.notEqual(r.status, 0);
-  assert.match(r.stderr, /layouts\/default\.md/);
+  assert.match(r.stderr, /_layouts\/default\.md/);
   assert.match(r.stderr, /"xtatic:style" has no default export/);
 });
 
@@ -320,7 +320,7 @@ test('a page generator ({placeholder} filename) lints clean and builds', () => {
   assert.equal(r.status, 0, r.stderr);
   // Confirm the build actually ran the expansion end-to-end on real fs.
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'tag-rust', 'index.html'),
+    path.join(top, '_site', 'tag-rust', 'index.html'),
     'utf8',
   );
   assert.match(html, /Tag: rust/);
@@ -341,10 +341,10 @@ test('lint inspects generator files: a broken import is caught', () => {
   assert.match(r.stderr, /missing\.mdx/);
 });
 
-test('lint skips only the files a pattern .xtatic-verbatim marker matches', () => {
+test('lint skips only the files a pattern _xtatic_verbatim marker matches', () => {
   const top = setupTopDir('verbatim-pattern-skip', {
     'pages/index.mdx': '# Hi\n',
-    'pages/.xtatic-verbatim': 'vendor/\n*.min.js\n',
+    'pages/_xtatic_verbatim': 'vendor/\n*.min.js\n',
     // Both would fail no-undef / no-unresolved if linted as sources.
     'pages/vendor/app.js': "import x from './missing.js';\nundefinedThing(x);\n",
     'pages/deep/lib.min.js': 'undefinedThing();\n',
@@ -358,10 +358,10 @@ test('lint skips only the files a pattern .xtatic-verbatim marker matches', () =
   assert.doesNotMatch(r.stderr, /lib\.min\.js/);
 });
 
-test('lint skips directories marked .xtatic-verbatim', () => {
+test('lint skips directories marked _xtatic_verbatim', () => {
   const top = setupTopDir('verbatim-skip', {
     'pages/index.mdx': '# Hi\n',
-    'pages/legacy/.xtatic-verbatim': '',
+    'pages/legacy/_xtatic_verbatim': '',
     // Would fail no-undef / no-unresolved if linted as a source file.
     'pages/legacy/app.js': "import x from './missing.js';\nundefinedThing(x);\n",
     'pages/legacy/old.md': "import Nope from './nope.mdx';\n\n<Nope />\n",
@@ -369,7 +369,22 @@ test('lint skips directories marked .xtatic-verbatim', () => {
   const r = runCli(top);
   assert.equal(r.status, 0, r.stderr);
   assert.equal(
-    nodeFs.readFileSync(path.join(top, 'site', 'legacy', 'app.js'), 'utf8'),
+    nodeFs.readFileSync(path.join(top, '_site', 'legacy', 'app.js'), 'utf8'),
+    "import x from './missing.js';\nundefinedThing(x);\n",
+  );
+});
+
+test('lint honors a custom xtatic.verbatimMarker from package.json', () => {
+  const top = setupTopDir('verbatim-custom-marker', {
+    'package.json': JSON.stringify({ xtatic: { verbatimMarker: '.keep' } }),
+    'pages/index.mdx': '# Hi\n',
+    'pages/legacy/.keep': '',
+    'pages/legacy/app.js': "import x from './missing.js';\nundefinedThing(x);\n",
+  });
+  const r = runCli(top);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(
+    nodeFs.readFileSync(path.join(top, '_site', 'legacy', 'app.js'), 'utf8'),
     "import x from './missing.js';\nundefinedThing(x);\n",
   );
 });

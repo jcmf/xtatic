@@ -36,14 +36,14 @@ function runCli(args, opts = {}) {
   });
 }
 
-test('CLI defaults to pages/ → site/ under topDir when no package.json exists', () => {
+test('CLI defaults to pages/ → _site/ under topDir when no package.json exists', () => {
   const top = setupTopDir('defaults', {
     files: { 'pages/index.md': '# Default layout\n' },
   });
   const r = runCli(['build', top]);
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.match(html, /<h1>Default layout<\/h1>/);
@@ -56,7 +56,7 @@ test('CLI with no args defaults to "build" in CWD', () => {
   const r = runCli([], { cwd: top });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.match(html, /<h1>From CWD<\/h1>/);
@@ -69,7 +69,7 @@ test('CLI with bare "build" command uses CWD as topDir', () => {
   const r = runCli(['build'], { cwd: top });
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.match(html, /<h1>Bare build<\/h1>/);
@@ -87,7 +87,7 @@ test('CLI reads inputDir/outputDir from package.json xtatic section', () => {
     'utf8',
   );
   assert.match(html, /<h1>Custom<\/h1>/);
-  assert.equal(nodeFs.existsSync(path.join(top, 'site')), false);
+  assert.equal(nodeFs.existsSync(path.join(top, '_site')), false);
 });
 
 test('CLI resolves relative config paths against topDir, not the working directory', () => {
@@ -114,7 +114,7 @@ test('CLI ignores package.json when it has no xtatic section', () => {
   const r = runCli(['build', top]);
   assert.equal(r.status, 0, r.stderr);
   const html = nodeFs.readFileSync(
-    path.join(top, 'site', 'index.html'),
+    path.join(top, '_site', 'index.html'),
     'utf8',
   );
   assert.match(html, /<h1>Plain<\/h1>/);
@@ -204,7 +204,7 @@ test('watch builds initially and rebuilds on change', async () => {
       label: 'watcher start',
     });
     let html = nodeFs.readFileSync(
-      path.join(top, 'site', 'index.html'),
+      path.join(top, '_site', 'index.html'),
       'utf8',
     );
     assert.match(html, /<h1>original<\/h1>/);
@@ -214,7 +214,7 @@ test('watch builds initially and rebuilds on change', async () => {
     await w.waitUntil(() => w.countBuilds() > before, {
       label: 'rebuild after edit',
     });
-    html = nodeFs.readFileSync(path.join(top, 'site', 'index.html'), 'utf8');
+    html = nodeFs.readFileSync(path.join(top, '_site', 'index.html'), 'utf8');
     assert.match(html, /<h1>updated<\/h1>/);
   } finally {
     w.proc.kill('SIGTERM');
@@ -240,7 +240,7 @@ test('watch keeps running and recovers after a build error', async () => {
       label: 'successful rebuild',
     });
     const html = nodeFs.readFileSync(
-      path.join(top, 'site', 'index.html'),
+      path.join(top, '_site', 'index.html'),
       'utf8',
     );
     assert.match(html, /<h1>Fixed<\/h1>/);
@@ -504,8 +504,8 @@ test('build --keep-going writes the good pages, reports every error, and exits 1
   assert.match(err, /\[1\/2\] boom a[\s\S]*in <Boom> at pages\/bad-a\.md:3:1/);
   assert.match(err, /\[2\/2\] boom b[\s\S]*in <Boom> at pages\/bad-b\.md:3:1/);
   assert.match(err, /2 pages were not written because of the errors above: bad-a, bad-b/);
-  assert.ok(nodeFs.existsSync(path.join(top, 'site', 'index.html')));
-  assert.ok(!nodeFs.existsSync(path.join(top, 'site', 'bad-a')));
+  assert.ok(nodeFs.existsSync(path.join(top, '_site', 'index.html')));
+  assert.ok(!nodeFs.existsSync(path.join(top, '_site', 'bad-a')));
 });
 
 test('-k is accepted anywhere on the command line, including before the command', () => {
@@ -515,7 +515,7 @@ test('-k is accepted anywhere on the command line, including before the command'
   const r = runCli(['-k', 'build', top]);
   assert.equal(r.status, 1);
   assert.match(stripAnsi(r.stderr), /Build finished with 1 error:/);
-  assert.ok(nodeFs.existsSync(path.join(top, 'site', 'index.html')));
+  assert.ok(nodeFs.existsSync(path.join(top, '_site', 'index.html')));
 });
 
 test('without --keep-going the first error stops the build and nothing is written', () => {
@@ -526,7 +526,7 @@ test('without --keep-going the first error stops the build and nothing is writte
   assert.equal(r.status, 1);
   assert.doesNotMatch(r.stderr, /Build finished with/);
   assert.match(stripAnsi(r.stderr), /boom a[\s\S]*in <Boom> at pages\/bad\.md:3:1/);
-  assert.ok(!nodeFs.existsSync(path.join(top, 'site')));
+  assert.ok(!nodeFs.existsSync(path.join(top, '_site')));
 });
 
 test('--keep-going is rejected for commands that do not build', () => {
@@ -558,5 +558,16 @@ test('build --keep-going: a lint failure no longer stops the build; both reports
   assert.match(err, /Failed to compile "pages\/unclosed\.md"/);
   assert.match(err, /boom a/);
   assert.match(err, /2 pages were not written because of the errors above: throws, unclosed/);
-  assert.ok(nodeFs.existsSync(path.join(top, 'site', 'index.html')));
+  assert.ok(nodeFs.existsSync(path.join(top, '_site', 'index.html')));
+});
+
+test('a non-string xtatic.verbatimMarker is rejected before building', () => {
+  const top = setupTopDir('verbatim-marker-type', {
+    pkg: { xtatic: { verbatimMarker: 42 } },
+    files: { 'pages/index.md': '# hi\n' },
+  });
+  const r = runCli(['build', top]);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /xtatic\.verbatimMarker must be a string/);
+  assert.equal(nodeFs.existsSync(path.join(top, '_site')), false);
 });

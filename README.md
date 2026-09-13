@@ -9,7 +9,7 @@ npm install --save-dev xtatic
 npx xtatic build [TOP_DIR]
 ```
 
-`TOP_DIR` defaults to the current directory. By default, xtatic walks `TOP_DIR/pages/**/*.{md,mdx}` and writes to `TOP_DIR/site/`.
+`TOP_DIR` defaults to the current directory. By default, xtatic walks `TOP_DIR/pages/**/*.{md,mdx}` and writes to `TOP_DIR/_site/`. Layouts live in `TOP_DIR/_layouts/`.
 
 The first positional argument is a command. The available commands are:
 
@@ -39,7 +39,7 @@ What changes under `--keep-going`:
 
 In `watch`/`serve` mode the same applies to every rebuild; the dev server's error page shows the combined report while any error remains. Programmatically, `build({ keepGoing: true })` rejects with an `AggregateError` whose `errors` holds the individual errors and whose `skippedPages` lists the pages left out.
 
-To override the input or output location, add an `xtatic` section to `TOP_DIR/package.json`:
+To override the input, output, or layouts location, add an `xtatic` section to `TOP_DIR/package.json`:
 
 ```json
 {
@@ -47,12 +47,13 @@ To override the input or output location, add an `xtatic` section to `TOP_DIR/pa
     "inputDir": "src/pages",
     "outputDir": "dist",
     "layoutsDir": "src/layouts",
-    "assetsDir": "_assets"
+    "assetsDir": "_assets",
+    "verbatimMarker": "_xtatic_verbatim"
   }
 }
 ```
 
-Relative paths in config are resolved against `TOP_DIR`, not the working directory; absolute paths are used as-is.
+The defaults are `pages`, `_site`, `_layouts`, `_assets`, and `_xtatic_verbatim` respectively. Relative paths in config are resolved against `TOP_DIR`, not the working directory; absolute paths are used as-is. (`assetsDir` and `verbatimMarker` are bare names, not paths — see below.)
 
 `OUTPUT_DIR` is fully owned by xtatic: every build regenerates the whole site, and anything under it that the build didn't produce is deleted at the end of the run — so renames and deletions can't leave stale files behind. Don't point it at a directory that holds anything you want to keep, and don't hand-edit files inside it. As a guard against catastrophic misconfiguration, xtatic refuses to build if `outputDir` is `/`, equal to a source directory, or an ancestor of `topDir`/`inputDir`/`layoutsDir`.
 
@@ -198,17 +199,19 @@ Other pages can link to it by source path (`<a href="./legacy.html">` → `legac
 
 ## Verbatim directories
 
-Drop an empty file named `.xtatic-verbatim` into any directory under `INPUT_DIR` and everything beneath it is copied to the output **as-is**, mirroring its source-tree position: `pages/legacy/foo/bar.html` lands at `OUTPUT_DIR/legacy/foo/bar.html`, byte-for-byte. Nothing in the subtree is parsed or rewritten — no `foo/index.html` remapping, no layout, no HTML/markdown compilation, no asset hashing or inlining, no link rewriting. This is for pre-rendered content (an old site, a generated API reference, a feed directory) that you want to keep in the one input tree without xtatic touching it.
+Drop an empty file named `_xtatic_verbatim` into any directory under `INPUT_DIR` and everything beneath it is copied to the output **as-is**, mirroring its source-tree position: `pages/legacy/foo/bar.html` lands at `OUTPUT_DIR/legacy/foo/bar.html`, byte-for-byte. Nothing in the subtree is parsed or rewritten — no `foo/index.html` remapping, no layout, no HTML/markdown compilation, no asset hashing or inlining, no link rewriting. This is for pre-rendered content (an old site, a generated API reference, a feed directory) that you want to keep in the one input tree without xtatic touching it.
 
 ```
 pages/
   index.md
   legacy/
-    .xtatic-verbatim      ← marker; not copied
+    _xtatic_verbatim      ← marker; not copied
     index.html            → OUTPUT_DIR/legacy/index.html
     feed.xml              → OUTPUT_DIR/legacy/feed.xml
     docs/intro.html       → OUTPUT_DIR/legacy/docs/intro.html
 ```
+
+The marker's file name is configurable via `xtatic.verbatimMarker` in `package.json` (a single file name, no `/`); the same name is used in every directory.
 
 Rules:
 
@@ -227,7 +230,7 @@ A marker that isn't empty lists **patterns**, one per line, and only what they m
 
 ```
 pages/
-  .xtatic-verbatim      ← contains:  favicon.ico
+  _xtatic_verbatim      ← contains:  favicon.ico
                                      robots.txt
                                      *.gif
                                      legacy/
@@ -264,7 +267,7 @@ A layout wraps another module's content. It's just an MDX module whose `default`
 
 A module gets a layout in one of two ways:
 
-1. **Explicit**: set `layout: <name>` in frontmatter (or as a named export). The string is treated as a path relative to `LAYOUTS_DIR` (default: `TOP_DIR/layouts`, configurable via `xtatic.layoutsDir` in `package.json`). The `.md`/`.mdx` suffix is optional; with no suffix `.mdx` is preferred. Subpaths work: `layout: posts/article`.
+1. **Explicit**: set `layout: <name>` in frontmatter (or as a named export). The string is treated as a path relative to `LAYOUTS_DIR` (default: `TOP_DIR/_layouts`, configurable via `xtatic.layoutsDir` in `package.json`). The `.md`/`.mdx` suffix is optional; with no suffix `.mdx` is preferred. Subpaths work: `layout: posts/article`.
 2. **Inherited via `defaultLayout`**: if `layout` isn't set, xtatic walks from the module up to the root looking for a `defaultLayout`, and uses the first one it finds. The walk starts at the module itself, so a module's own `defaultLayout` applies to it. Set `defaultLayout` on the root to give every page a default; set it on a subdirectory's `index.md` to override for that subtree.
 
 Layouts loaded by name can themselves declare `layout:` (or `defaultLayout:`) for nesting. You can also set `layout` directly to a module object via `import`, bypassing the layoutsDir lookup.

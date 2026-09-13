@@ -178,7 +178,7 @@ test('generated pages join the tree: a listing links them via childPages + url',
 
 test('item exports drive metadata; the substituted name defaults title', async () => {
   const fs = makeFs({
-    '/top/layouts/base.mdx':
+    '/top/_layouts/base.mdx':
       '<html><head><title>{props.children.title}</title></head><body>{props.children}</body></html>\n',
     '/top/pages/index.md': '# Home\n',
     '/top/pages/tag-{tag}.md':

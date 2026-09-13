@@ -13,7 +13,8 @@ import { createOutputWriter } from './output.js';
 import { createRegistry } from './registry.js';
 import { wrapZipFs } from './zipfs.js';
 import {
-  VERBATIM_MARKER,
+  DEFAULT_VERBATIM_MARKER,
+  assertValidVerbatimMarker,
   collectVerbatimFiles,
   hasVerbatimMarker,
   isVerbatimByPatterns,
@@ -32,29 +33,31 @@ const LEFTOVER_TOKEN_RE =
   /__XTATIC_(?:IMG|STYLE|FONT|ASSET)_[a-f0-9]+__|__XTATIC_EMIT_[a-f0-9]+\.[a-z0-9]+__/;
 
 // Walk inputDir for page sources. A directory carrying an empty
-// `.xtatic-verbatim` marker is not descended for pages: every file under it is
+// verbatim marker (default `_xtatic_verbatim`) is not descended for pages: every file under it is
 // collected into `verbatim` instead, to be copied to the output as-is. A
 // marker with pattern lines only diverts the matching files/directories and
 // the walk otherwise continues; its patterns stay active for the whole
 // subtree beneath it (see src/verbatim.js).
-async function walkPages(fs, root) {
+async function walkPages(fs, root, markerName) {
   const results = [];
   const verbatim = [];
   async function recurse(absDir, relDir, active) {
     const entries = await fs.promises.readdir(absDir, { withFileTypes: true });
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-    if (hasVerbatimMarker(entries)) {
+    if (hasVerbatimMarker(entries, markerName)) {
       const marker = parseVerbatimMarker(
-        await fs.promises.readFile(`${absDir}/${VERBATIM_MARKER}`, 'utf8'),
+        await fs.promises.readFile(`${absDir}/${markerName}`, 'utf8'),
       );
       if (marker.all) {
-        verbatim.push(...(await collectVerbatimFiles(fs, absDir, relDir)));
+        verbatim.push(
+          ...(await collectVerbatimFiles(fs, absDir, relDir, markerName)),
+        );
         return;
       }
       active = [...active, { baseRel: relDir, rules: marker.rules }];
     }
     for (const ent of entries) {
-      if (ent.name === VERBATIM_MARKER) continue;
+      if (ent.name === markerName) continue;
       const childAbs = `${absDir}/${ent.name}`;
       const childRel = relDir === '' ? ent.name : `${relDir}/${ent.name}`;
       const isDir = ent.isDirectory();
@@ -64,7 +67,9 @@ async function walkPages(fs, root) {
         isVerbatimByPatterns(active, childRel, isDir)
       ) {
         if (isDir) {
-          verbatim.push(...(await collectVerbatimFiles(fs, childAbs, childRel)));
+          verbatim.push(
+            ...(await collectVerbatimFiles(fs, childAbs, childRel, markerName)),
+          );
         } else {
           verbatim.push({ absPath: childAbs, relPath: childRel });
         }
@@ -354,6 +359,7 @@ async function buildImpl({
   styleInlineThreshold,
   assetInlineThreshold,
   assetsDir = '_assets',
+  verbatimMarker = DEFAULT_VERBATIM_MARKER,
   autoInstall = false,
   install,
   fontSubset,
@@ -371,9 +377,10 @@ async function buildImpl({
   layoutsDir =
     layoutsDir != null
       ? path.posix.resolve(layoutsDir)
-      : path.posix.join(topDir, 'layouts');
+      : path.posix.join(topDir, '_layouts');
   assertSafeOutputDir(outputDir, { topDir, inputDir, layoutsDir });
   assertValidAssetsDir(assetsDir);
+  assertValidVerbatimMarker(verbatimMarker);
   const assetsDirAbs = path.posix.join(outputDir, assetsDir);
   // The writer keeps the raw injected fs: output paths never need the zip
   // interception, and the unchanged-file comparison reads would otherwise be
@@ -383,7 +390,11 @@ async function buildImpl({
   // this build didn't write (so renames/deletes still can't leave stale files).
   const writer = createOutputWriter({ fs, outputDir });
   fs = wrapZipFs(fs);
-  const { pages: files, verbatim } = await walkPages(fs, inputDir);
+  const { pages: files, verbatim } = await walkPages(
+    fs,
+    inputDir,
+    verbatimMarker,
+  );
   // Verbatim files claim their output paths before any page renders, so a
   // page landing on the same path (pages/about.md vs. a verbatim
   // pages/about/index.html) is a hard error, and none may sit under assetsDir.

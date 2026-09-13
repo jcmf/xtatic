@@ -1,6 +1,6 @@
 {
   "name": "xtatic",
-  "version": "0.23.1",
+  "version": "0.24.0",
   "description": "Static site generator that compiles MDX to HTML by executing it at build time.",
   "keywords": [
     "static-site-generator",

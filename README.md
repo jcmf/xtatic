@@ -95,6 +95,25 @@ import {html} from 'xtatic:builtins';
 
 The value must be an absolute path (starting with `/`) naming a file. `name`, `childPages`, `date`, and `title` still derive from the source file's tree position — only the written file's location changes. Layouts still apply; set `layout: null` (or just have no `defaultLayout` in scope) to opt out of HTML wrapping, as RSS/XML output usually wants.
 
+## Filtering pages
+
+A page can export `pageFilter(page) → boolean` to decide which of its descendants are part of the build — for example, to hide drafts unless an environment variable is set:
+
+```mdx
+export const pageFilter = (page) => !page.draft || process.env.DRAFTS === '1'
+```
+
+```md
+---
+draft: true
+---
+# Work in progress
+```
+
+The filter is called for every descendant at any depth (not for the page that exports it), after the tree is assembled, so `page` carries its frontmatter and exports plus `name`, `title`, `date` (including the name-derived date — `page.date <= today` hides future posts), and `parent`. A page that's rejected is left out entirely: it isn't written, it doesn't appear in any `childPages` (so `prevSibling`/`nextSibling` skip it), and its whole subtree goes with it. Filters nest: a page is kept only if every ancestor's `pageFilter` accepts it. Generated pages are filtered too, and a generator's `getPages()` only sees pages that survived.
+
+Linking to a filtered-out page (`[x](./draft.md)`) is a build error rather than a dead link. A `pageFilter` that isn't a function, throws, or returns something other than `true`/`false` is also an error; with `--keep-going` the pages it was judging are skipped, never published.
+
 ## Generating multiple pages from one file
 
 One source file can fan out into many pages — a tag page per tag, a post page per row of data, etc. Two things make a file a **page generator**:

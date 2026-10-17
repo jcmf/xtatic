@@ -117,3 +117,88 @@ export function assembleTree(entries, options = {}) {
 
   return root.mm;
 }
+
+// `pageFilter`: a page may export `pageFilter(page) → boolean` to decide which
+// of its descendants (at any depth, not itself) are part of the build. A page
+// is kept only if every ancestor's filter accepts it; rejecting a page drops
+// its whole subtree. Call after assembleTree so filters see tree-derived
+// fields (name/title/date/parent); the caller re-assembles the survivors.
+//
+// `decided` (segments key → {excluded, reason}) persists across calls so
+// buildImpl's two-pass assembly neither calls a filter twice on the same page
+// nor loses an exclusion from the first pass: a generated page whose ancestor
+// was dropped in pass one no longer finds that ancestor in `entries`, but
+// still finds it in `decided`. `onError(entry, err)` handles a filter that
+// throws or isn't a function / doesn't return a boolean; the page it was
+// judging is excluded (failing closed: a broken draft filter mustn't publish
+// drafts). Returns {kept, excluded}: `kept` is an entry list, `excluded` a list
+// of {entry, reason, failed}.
+export function applyPageFilters(entries, { decided = new Map(), onError }) {
+  const byKey = new Map(entries.map((e) => [e.segments.join('/'), e]));
+  const notFunction = new Map();
+  const kept = [];
+  const excluded = [];
+  const sorted = [...entries].sort(
+    (a, b) => a.segments.length - b.segments.length,
+  );
+  for (const entry of sorted) {
+    const key = entry.segments.join('/');
+    let verdict = decided.get(key);
+    if (!verdict) {
+      verdict = judge(entry);
+      decided.set(key, verdict);
+    }
+    if (verdict.excluded) excluded.push({ entry, ...verdict });
+    else kept.push(entry);
+  }
+  return { kept, excluded };
+
+  function judge(entry) {
+    for (let depth = 0; depth < entry.segments.length; depth++) {
+      const ancKey = entry.segments.slice(0, depth).join('/');
+      const prior = decided.get(ancKey);
+      if (prior?.excluded) {
+        return prior;
+      }
+      const anc = byKey.get(ancKey);
+      if (!anc || anc.mm.pageFilter === undefined) continue;
+      const owner = anc.mm.__xtatic_path ?? (ancKey || '(root)');
+      const filter = anc.mm.pageFilter;
+      const reason = `pageFilter in "${owner}"`;
+      try {
+        if (typeof filter !== 'function') {
+          // One Error object per owner, so the collector lists it once rather
+          // than once per descendant.
+          if (!notFunction.has(anc.mm)) {
+            notFunction.set(
+              anc.mm,
+              new Error(
+                `"${owner}" exports \`pageFilter\` but it is not a function (got ${filter === null ? 'null' : typeof filter}).`,
+              ),
+            );
+          }
+          throw notFunction.get(anc.mm);
+        }
+        let result;
+        try {
+          result = filter(entry.mm);
+        } catch (e) {
+          throw new Error(
+            `${reason} threw for "${entry.segments.join('/')}": ${e?.message ?? e}`,
+            { cause: e },
+          );
+        }
+        if (typeof result !== 'boolean') {
+          throw new Error(
+            `${reason} must return a boolean (got ${result === null ? 'null' : typeof result} for "${entry.segments.join('/')}").`,
+          );
+        }
+        if (!result) return { excluded: true, reason };
+      } catch (e) {
+        onError(entry, e);
+        return { excluded: true, reason, failed: true };
+      }
+    }
+    return { excluded: false };
+  }
+}

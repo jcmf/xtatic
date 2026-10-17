@@ -6,7 +6,7 @@ import { createFontRegistry } from './font.js';
 import { createImageRegistry } from './image.js';
 import { createStyleRegistry } from './style.js';
 import { resolveLogicalPath, hasPlaceholders } from './paths.js';
-import { assembleTree } from './tree.js';
+import { applyPageFilters, assembleTree } from './tree.js';
 import { renderModule } from './render.js';
 import { attachContext, formatContext, withFrame } from './render-context.js';
 import { createOutputWriter } from './output.js';
@@ -515,8 +515,31 @@ async function buildImpl({
   // full assembly below once the generated pages join — assembleTree rebuilds
   // childPages from scratch, so running it twice is safe. Skip when there are no
   // generators: nothing reads the intermediate state.
-  if (templateFiles.length > 0) {
+  //
+  // pageFilter exclusions are applied to this ordinary-page tree first (so
+  // getPages() never sees a filtered-out page in childPages), then again to
+  // the generated pages after the full assembly. Filters see an assembled
+  // tree (name/title/date/parent), and the survivors are re-assembled.
+  const hasFilters = entries.some((e) => e.mm.pageFilter !== undefined);
+  const decided = new Map();
+  const excludedPages = [];
+  const filterPages = () => {
+    const { kept, excluded } = applyPageFilters(entries, {
+      decided,
+      onError: (_entry, err) => errors.report(err),
+    });
+    for (const x of excluded) {
+      if (x.failed) skipped.push(pageLabel(x.entry));
+      else excludedPages.push(x);
+    }
+    entries = kept;
+    return excluded.length > 0;
+  };
+  if (templateFiles.length > 0 || hasFilters) {
     assembleTree(entries, { inputDir });
+    if (hasFilters && filterPages() && templateFiles.length > 0) {
+      assembleTree(entries, { inputDir });
+    }
   }
   // Expand each generator into its synthetic child pages, then fold them into
   // the entry set so they flow through tree assembly and rendering as usual.
@@ -543,7 +566,10 @@ async function buildImpl({
   entries.sort((a, b) =>
     a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0,
   );
-  const root = assembleTree(entries, { inputDir });
+  let root = assembleTree(entries, { inputDir });
+  if (hasFilters && filterPages()) {
+    root = assembleTree(entries, { inputDir });
+  }
   // A page whose layout chain doesn't resolve can't render; it keeps its
   // place in the tree (listings still see it) but is skipped by renderTree.
   // Layout lookups that fail are cached by name so fifty pages sharing one
@@ -591,8 +617,17 @@ async function buildImpl({
   const verbatimOutBySrc = new Map(
     verbatimOk.map((v) => [v.absPath, v.outPath]),
   );
+  // A link to a page dropped by a pageFilter is an error, rather than falling
+  // through to the asset path (which would publish the draft's source).
+  const excludedBySrc = new Map(
+    excludedPages.map(({ entry, reason }) => [
+      path.posix.join(topDir, entry.mm.__xtatic_path),
+      reason,
+    ]),
+  );
   const assetSubstitute = await plainAssetRegistry.processAll(pages, {
     verbatimOutBySrc,
+    excludedBySrc,
   });
   const fontSubstitute = await fontRegistry.processAll(rendered, {
     cssForPage: (html) => [

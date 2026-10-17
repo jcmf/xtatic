@@ -105,6 +105,17 @@ function findLinkTarget(absSrc, pageOutBySrc, verbatimOutBySrc) {
   return {};
 }
 
+// A page source dropped by a pageFilter (direct or via its directory's index
+// file); returns the filter's description, or undefined.
+function findExcludedTarget(absSrc, excludedBySrc) {
+  if (excludedBySrc.has(absSrc)) return excludedBySrc.get(absSrc);
+  for (const name of PAGE_INDEX_NAMES) {
+    const candidate = path.posix.join(absSrc, name);
+    if (excludedBySrc.has(candidate)) return excludedBySrc.get(candidate);
+  }
+  return undefined;
+}
+
 export function createPlainAssetRegistry({
   fs,
   topDir,
@@ -217,7 +228,14 @@ export function createPlainAssetRegistry({
   // literal filename is kept, except that an `index.html` target gets the
   // same directory-URL cleanup as a page (`legacy/index.html` → `legacy/`),
   // so `href="legacy/"` and `href="legacy/index.html"` come out identical.
-  async function processAll(pages, { verbatimOutBySrc = new Map() } = {}) {
+  //
+  // `excludedBySrc` maps the source of each page a pageFilter dropped to the
+  // filter's description; a reference to one is an error (the page has no
+  // output, and copying its source as an asset would publish it).
+  async function processAll(
+    pages,
+    { verbatimOutBySrc = new Map(), excludedBySrc = new Map() } = {},
+  ) {
     if (calls.length === 0) {
       return function substitute(html) {
         return html;
@@ -255,6 +273,21 @@ export function createPlainAssetRegistry({
           ...findLinkTarget(call.absSrc, pageOutBySrc, verbatimOutBySrc),
         };
         bySrc.set(call.absSrc, entry);
+        const excludedBy =
+          isLinkTarget(entry) || excludedBySrc.size === 0
+            ? undefined
+            : findExcludedTarget(call.absSrc, excludedBySrc);
+        if (excludedBy !== undefined) {
+          entry.failed = true;
+          errors.report(
+            attachContext(
+              new Error(
+                `"${call.srcDisplay}" (in "${displayPath(call.importerAbsPath)}") links to a page excluded by ${excludedBy}.`,
+              ),
+              call.context,
+            ),
+          );
+        }
       }
       entry.calls.push({ ...call, pageOutPath });
       entry.pages.add(pageOutPath);
